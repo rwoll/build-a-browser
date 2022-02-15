@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 from dataclasses import dataclass
+import gzip
+from io import BytesIO
 from socket import AF_INET, IPPROTO_TCP, SOCK_STREAM, socket
 from typing import Dict, TextIO, Tuple
 
@@ -9,6 +11,9 @@ HTTP_PROTOCOL_PREFIX = "http://"
 URL_PATH_SEP = "/"
 CRLF = "\r\n"
 ENCODING = "utf8"
+GZIP_ENCODING = "gzip"
+HEADER_CONTENT_ENCODING = "content-encoding"
+HEADER_ACCEPT_ENCODING = "accept-encoding"
 
 
 @dataclass
@@ -33,24 +38,28 @@ def request(url: str) -> Tuple[Dict[str, str], str]:
     s = socket(family=AF_INET, type=SOCK_STREAM, proto=IPPROTO_TCP)
     s.connect((parsed.host, 80))
     s.send(
-        f"GET {parsed.path} HTTP/1.0{CRLF}Host: {parsed.host}{CRLF}{CRLF}".encode(
+        f"GET {parsed.path} HTTP/1.0{CRLF}Host: {parsed.host}{CRLF}{HEADER_ACCEPT_ENCODING}: {GZIP_ENCODING}{CRLF}{CRLF}".encode(
             ENCODING
         )
     )
-    response: TextIO = s.makefile("r", encoding=ENCODING, newline=CRLF)
-    statusline = response.readline()
+    response: BytesIO = s.makefile("rb", encoding=ENCODING, newline=CRLF)
+    statusline = response.readline().decode(ENCODING)
     version, status, explanation = statusline.split(" ", 2)
     assert status == "200", "{}: {}".format(status, explanation)
 
     headers = {}
     while True:
-        line = response.readline()
+        line = response.readline().decode(ENCODING)
         if line == CRLF:
             break
         header, value = line.split(":", 1)
         headers[header.lower()] = value.strip()
 
-    body = response.read()
+    encoding = headers.get(HEADER_CONTENT_ENCODING, "")
+    if encoding.lower() == GZIP_ENCODING:
+        body = gzip.decompress(response.read()).decode(ENCODING)
+    else:
+        body = response.read().decode(ENCODING)
 
     s.close()
 
