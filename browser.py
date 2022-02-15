@@ -39,6 +39,10 @@ class URL:
             url += URL_PATH_SEP
 
         host, path = url.split(URL_PATH_SEP, maxsplit=1)
+        if ":" in host:
+            host, port = host.split(":", 1)
+            port = int(port)
+
         path = URL_PATH_SEP + path
 
         return URL(raw=raw, host=host, path=path, port=port, scheme=scheme)
