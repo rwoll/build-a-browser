@@ -10,7 +10,7 @@
 # Syntax: ./desktop-lite-debian.sh [non-root user] [Desktop password] [Install web client flag] [VNC port] [Web Port]
 
 USERNAME=${1:-"codespace"}
-VNC_PASSWORD=${RWOLL_BUILD_A_BROWSER_VNC_PASSWORD-$(openssl rand -hex 12)}
+VNC_PASSWORD="$(openssl rand -hex 64)"
 INSTALL_NOVNC=${3:-"true"}
 VNC_PORT="${4:-5901}"
 NOVNC_PORT="${5:-6080}"
