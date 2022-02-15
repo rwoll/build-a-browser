@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
+from collections import namedtuple
 from dataclasses import dataclass
 import gzip
 from io import BytesIO
+from multiprocessing import Event
 from socket import AF_INET, IPPROTO_TCP, SOCK_STREAM, socket
-from typing import Dict, Tuple
+from typing import Dict, List, NamedTuple, Tuple
 import ssl
 import tkinter
 
@@ -21,6 +23,41 @@ HEADER_CONTENT_ENCODING = "content-encoding"
 HEADER_ACCEPT_ENCODING = "accept-encoding"
 
 WIDTH, HEIGHT = 800, 600
+SCROLL_STEP = 100
+
+
+class Point(NamedTuple):
+    x: int
+    y: int
+
+
+class Character(NamedTuple):
+    loc: Point
+    char: str
+
+
+HSTEP, VSTEP = 13, 18
+
+
+def layout(text: str):
+    display_list: List[Character] = []
+
+    cursor_x, cursor_y = HSTEP, VSTEP
+    for c in text:
+        if c == "\n":
+            cursor_x = HSTEP
+            cursor_y += 2 * VSTEP
+            continue
+
+        display_list.append(
+            Character(loc=Point(x=cursor_x, y=cursor_y), char=c),
+        )
+        cursor_x += HSTEP
+        if cursor_x >= WIDTH - HSTEP:
+            cursor_y += VSTEP
+            cursor_x = HSTEP
+
+    return display_list
 
 
 @dataclass
@@ -117,19 +154,35 @@ class Browser:
             height=HEIGHT,
         )
         self.canvas.pack()
+        self.display_list: List[Character] = []
+        self.scroll = 0
+        self.window.bind("<Down>", self.scroll_down)
+        self.window.bind("<Up>", self.scroll_up)
+
+    def scroll_down(self, e: Event):
+        self.scroll += SCROLL_STEP
+        self.draw()
+
+    def scroll_up(self, e: Event):
+        _last = self.scroll
+        self.scroll = max(self.scroll - SCROLL_STEP, 0)
+        if _last != self.scroll:
+            self.draw()
+
+    def draw(self):
+        self.canvas.delete("all")
+        for d in self.display_list:
+            if d.loc.y > self.scroll + HEIGHT:
+                continue
+            if d.loc.y + VSTEP < self.scroll:
+                continue
+            self.canvas.create_text(d.loc.x, d.loc.y - self.scroll, text=d.char)
 
     def load(self, url: str):
         headers, body = request(url=url)
         text = lex(body=body)
-
-        HSTEP, VSTEP = 13, 18
-        cursor_x, cursor_y = HSTEP, VSTEP
-        for c in text:
-            self.canvas.create_text(cursor_x, cursor_y, text=c)
-            cursor_x += HSTEP
-            if cursor_x >= WIDTH - HSTEP:
-                cursor_y += VSTEP
-                cursor_x = HSTEP
+        self.display_list = layout(text)
+        self.draw()
 
 
 if __name__ == "__main__":
