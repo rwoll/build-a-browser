@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 from dataclasses import dataclass
 import gzip
@@ -6,6 +6,7 @@ from io import BytesIO
 from socket import AF_INET, IPPROTO_TCP, SOCK_STREAM, socket
 from typing import Dict, Tuple
 import ssl
+import tkinter
 
 DEFAULT_HTTP_PORT = 80
 HTTP_PROTOCOL_PREFIX = "http://"
@@ -18,6 +19,8 @@ ENCODING_GZIP = "gzip"
 
 HEADER_CONTENT_ENCODING = "content-encoding"
 HEADER_ACCEPT_ENCODING = "accept-encoding"
+
+WIDTH, HEIGHT = 800, 600
 
 
 @dataclass
@@ -86,23 +89,51 @@ def request(url: str) -> Tuple[Dict[str, str], str]:
     return headers, body
 
 
-def show(body: str):
-    in_tag = False
+def lex(body: str) -> str:
+    text = ""
+    in_angle = False
     for c in body:
         if c == "<":
-            in_tag = True
+            in_angle = True
         elif c == ">":
-            in_tag = False
-        elif not in_tag:
-            print(c, end="")
+            in_angle = False
+        elif not in_angle:
+            text += c
+
+    return text
 
 
 def load(url: str):
     headers, body = request(url)
-    show(body=body)
+    lex(body=body)
+
+
+class Browser:
+    def __init__(self) -> None:
+        self.window = tkinter.Tk()
+        self.canvas = tkinter.Canvas(
+            self.window,
+            width=WIDTH,
+            height=HEIGHT,
+        )
+        self.canvas.pack()
+
+    def load(self, url: str):
+        headers, body = request(url=url)
+        text = lex(body=body)
+
+        HSTEP, VSTEP = 13, 18
+        cursor_x, cursor_y = HSTEP, VSTEP
+        for c in text:
+            self.canvas.create_text(cursor_x, cursor_y, text=c)
+            cursor_x += HSTEP
+            if cursor_x >= WIDTH - HSTEP:
+                cursor_y += VSTEP
+                cursor_x = HSTEP
 
 
 if __name__ == "__main__":
     import sys
 
-    load(sys.argv[1])
+    Browser().load(sys.argv[1])
+    tkinter.mainloop()
