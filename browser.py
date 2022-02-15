@@ -27,7 +27,11 @@ class URL:
         raw = url
         assert url.startswith(HTTP_PROTOCOL_PREFIX)
         url = url[len(HTTP_PROTOCOL_PREFIX) :]
-        host, path = url.split(URL_PATH_SEP)
+
+        if URL_PATH_SEP not in url:
+            url += URL_PATH_SEP
+
+        host, path = url.split(URL_PATH_SEP, maxsplit=1)
         path = URL_PATH_SEP + path
 
         return URL(raw=raw, host=host, path=path)
@@ -78,7 +82,7 @@ def show(body: str):
 
 
 def load(url: str):
-    headers, body = request("http://example.com/index.html")
+    headers, body = request(url)
     show(body=body)
 
 
